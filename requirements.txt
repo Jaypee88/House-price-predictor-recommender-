@@ -1,0 +1,10 @@
+pandas
+numpy
+pgeocode
+scikit-learn
+os
+joblib
+xgboost
+matplotlib
+shap
+streamlit
