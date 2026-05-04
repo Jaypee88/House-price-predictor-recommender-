@@ -7,8 +7,7 @@ import joblib
 import matplotlib.pyplot as plt
 from xgboost import plot_importance
 from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.feature_extraction.text import TfidfVectorizer
-import shap
+from sklearn.feature_extraction.text import TfidfVectorizergit
 
 #Loading some  of  the saved functions,model from joblib
 model = joblib.load('house_model.pkl')
