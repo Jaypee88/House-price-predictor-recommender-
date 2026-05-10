@@ -149,13 +149,13 @@ with tab2:
             # Ensure same column order
             input_data = input_data[X_train.columns]
 
-            # ================= FEATURE SIMILARITY =================
+            #Feature   Similarity
             similarity = cosine_similarity(input_data, X_train).flatten()
 
-            # Normalize
+            # Normalize similarity score
             similarity = (similarity - similarity.min()) / (similarity.max() - similarity.min() + 1e-9)
 
-            # ================= PRICE SIMILARITY =================
+            # Price Similarity
             predicted_price = model.predict(input_data)[0]
 
             # Use original dataset prices
@@ -166,7 +166,7 @@ with tab2:
 
             price_similarity = 1 - (price_diff / (price_diff.max() + 1e-9))
 
-            # ================= COMBINED SCORE =================
+            # Combined score for recommendation
             final_score = (0.7 * similarity) + (0.3 * price_similarity)
 
             # Get top houses
@@ -188,10 +188,10 @@ with tab2:
                 'SalePrice'
             ]].copy()
 
-            # Add scores
+            # Add similarity scores
             recommended_houses['Match Score (%)'] = (final_score[top_idx] * 100).round(2)
 
-            # Rename columns
+            # Rename columns to   improve UI
             recommended_houses.rename(columns={
                 'city': 'City',
                 'PropertyType': 'Property Type',
@@ -208,7 +208,7 @@ with tab2:
                 'SalePrice': 'Price ($)'
             }, inplace=True)
 
-            #Converted new construction from 0/1 to yes or now for better understanding
+            #Converted new construction from 0/1 to yes or no for better understanding
             recommended_houses['New/Renovated'] = recommended_houses[
                                                 'New/Renovated'].map({1: 'Yes', 0: 'No'})
 
@@ -220,7 +220,7 @@ with tab2:
             st.download_button("⬇ Download Recommendations", data=csv, file_name="smart_recommendations.csv")
 
 #For clarification  added some sidebar notes to  the   user so they can understand some of
-# the uncommon features of the house features or required inputs
+#the uncommon features of the house features or required inputs
 st.sidebar.title('About the APP')
 
 st.sidebar.write('''
@@ -228,7 +228,7 @@ st.sidebar.write('''
     features and predicts the price based on the features provided
     Hints:
     ** It is adviced to input values very realistic as the determines
-    the perrformance of the model .
+    the performance of the model .
     Look down on the page for more clarity on the model parameters
 ''')
 
@@ -258,5 +258,3 @@ st.write('''
 st.warning('''House built ealier than the specified year of 2018 may be less
         accurate those within 2015  to 1900 are best for optimal performance
         ''')
-
-st.write(original.columns.tolist())
