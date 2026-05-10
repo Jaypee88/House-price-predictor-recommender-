@@ -108,3 +108,6 @@ Nwankwo Chidozie Johnpaul
 📜 License
 
 This project is for educational and research purposes.
+
+To Check or experience the app follow the link below
+https://washingtonhousemodel.streamlit.app/
