@@ -28,6 +28,7 @@ XGBoost
 Matplotlib  
 
 📂 Project Structure
+```bash
 house-recommendation-system/
 │
 ├── house_app.py                  # Streamlit application  
@@ -38,7 +39,7 @@ house-recommendation-system/
 ├── original_data.csv            # Cleaned dataset for recommendations  
 ├── requirements.txt  
 └── README.md  
-
+```
 ⚙️ How It Works  
 🔹 1. Data Processing  
 Original dataset contains house sales data from Washington, USA
