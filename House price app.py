@@ -45,11 +45,15 @@ st.markdown(
       h1, h2, h3 { color: #14243B; letter-spacing: -0.02em; }
       div[data-testid="stMetric"] {
         background: #FFFFFF; border: 1px solid #E8E3D8;
-        border-left: 4px solid #C5A15A; border-radius: 12px;
-        padding: 13px 16px;
+        border-left: 3px solid #C5A15A; border-radius: 10px;
+        padding: 7px 10px; min-height: 76px;
       }
-      div[data-testid="stMetricLabel"] { color: #687588; }
-      div[data-testid="stMetricValue"] { color: #14243B; }
+      div[data-testid="stMetricLabel"] {
+        color: #687588; font-size: 0.76rem; line-height: 1.05;
+      }
+      div[data-testid="stMetricValue"] {
+        color: #14243B; font-size: 1.22rem; line-height: 1.15;
+      }
       .stButton > button, .stDownloadButton > button {
         background: #C5A15A; color: #14243B; border: 1px solid #C5A15A;
         border-radius: 9px; font-weight: 650; min-height: 2.65rem;
@@ -61,14 +65,14 @@ st.markdown(
       .hero {
         background: linear-gradient(112deg, #14243B 0%, #243B59 100%);
         border: 1px solid #2A405D; border-radius: 16px;
-        padding: 25px 28px; margin: 4px 0 22px 0;
+        padding: 16px 22px; margin: 4px 0 12px 0;
       }
       .hero-kicker {
         color: #E8D8B5; font-size: 0.74rem; font-weight: 700;
         letter-spacing: 0.16em; text-transform: uppercase;
       }
       .hero-title {
-        color: #FFFFFF; font-size: 1.9rem; font-weight: 750;
+        color: #FFFFFF; font-size: 1.65rem; font-weight: 750;
         margin: 5px 0 4px 0; line-height: 1.2;
       }
       .hero-copy { color: #D6DFE9; font-size: 0.95rem; margin: 0; }
@@ -410,31 +414,10 @@ elif page == "Market Analytics":
     missing_cells = int(data.isna().sum().sum())
     duplicate_rows = int(data.duplicated().sum())
 
-    st.subheader("Housing dataset at a glance")
-    k1, k2, k3, k4, k5 = st.columns(5)
-    k1.metric("Property records", f"{total_rows:,}")
-    k2.metric("Cities represented", f"{number_of_cities:,}")
-    k3.metric("Property types", f"{number_of_types:,}")
-    k4.metric("Median sale price", money(median_price))
-    k5.metric("Average sale price", money(average_price))
+    # A compact five-column KPI wall keeps the headline statistics together
+    # for portfolio screenshots while retaining every existing metric.
+    st.subheader("Analytics at a glance")
 
-    p1, p2, p3, p4 = st.columns(4)
-    p1.metric("Missing values", f"{missing_cells:,}")
-    p2.metric("Duplicate rows", f"{duplicate_rows:,}")
-    p3.metric("Median living area", f"{data['SqFtTotLiving'].median():,.0f} sq ft")
-    p4.metric(
-        "New construction share",
-        f"{(data['NewConstruction'].astype(bool).mean() * 100):.1f}%",
-    )
-
-    st.caption(
-        "The dataset summary is calculated from original_data.csv. "
-        "Prices and property characteristics below are displayed in their original units."
-    )
-
-    # Put model performance near the top so the dashboard communicates both
-    # dataset analysis and predictive performance in its first overview area.
-    st.subheader("Model performance snapshot")
     try:
         evaluation, metrics = calculate_holdout_evaluation(
             original,
@@ -444,22 +427,46 @@ elif page == "Market Analytics":
             scaler,
             model,
         )
-        model_kpis = st.columns(5)
-        model_kpis[0].metric("Held-out R²", f"{metrics['R2']:.3f}")
-        model_kpis[1].metric("MAE", money(metrics["MAE"]))
-        model_kpis[2].metric("RMSE", money(metrics["RMSE"]))
-        model_kpis[3].metric("Median absolute error", money(metrics["Median AE"]))
-        model_kpis[4].metric("Test records", f"{metrics['Test Rows']:,}")
-        st.caption(
-            "Scores use the reconstructed 20% hold-out records. The original "
-            "notebook fitted preprocessing before splitting, so the encoder and "
-            "scaler had access to the full feature dataset; a future model refresh "
-            "should fit preprocessing on training rows only."
-        )
-    except Exception:
+        evaluation_error = None
+    except Exception as exc:
         evaluation = None
         metrics = None
-        st.caption("Model performance metrics could not be reconstructed from the saved files.")
+        evaluation_error = str(exc)
+
+    stat_cards = [
+        ("Property records", f"{total_rows:,}"),
+        ("Median sale price", money(median_price)),
+        ("Held-out R²", f"{metrics['R2']:.3f}" if metrics else "N/A"),
+        ("MAE", money(metrics["MAE"]) if metrics else "N/A"),
+        ("RMSE", money(metrics["RMSE"]) if metrics else "N/A"),
+        ("Average sale price", money(average_price)),
+        ("Median absolute error", money(metrics["Median AE"]) if metrics else "N/A"),
+        ("Test records", f"{metrics['Test Rows']:,}" if metrics else "N/A"),
+        ("Cities represented", f"{number_of_cities:,}"),
+        ("Property types", f"{number_of_types:,}"),
+        ("Median living area", f"{data['SqFtTotLiving'].median():,.0f} sq ft"),
+        ("New construction share", f"{(data['NewConstruction'].astype(bool).mean() * 100):.1f}%"),
+        ("Missing values", f"{missing_cells:,}"),
+        ("Duplicate rows", f"{duplicate_rows:,}"),
+    ]
+
+    for row_start in range(0, len(stat_cards), 5):
+        metric_columns = st.columns(5, gap="small")
+        for column, (label, value) in zip(
+            metric_columns, stat_cards[row_start:row_start + 5]
+        ):
+            with column:
+                st.metric(label, value)
+
+    st.caption(
+        "Dataset figures are calculated from original_data.csv. Model scores use "
+        "the reconstructed 20% hold-out records. The original notebook fitted "
+        "preprocessing before splitting, so the encoder and scaler had access "
+        "to the full feature dataset; a future model refresh should fit "
+        "preprocessing on training rows only."
+    )
+    if evaluation_error:
+        st.caption(f"Model evaluation unavailable: {evaluation_error}")
 
     st.markdown("---")
 
