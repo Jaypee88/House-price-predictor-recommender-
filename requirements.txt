@@ -4,4 +4,5 @@ pgeocode
 scikit-learn
 xgboost
 matplotlib
+plotly
 streamlit
