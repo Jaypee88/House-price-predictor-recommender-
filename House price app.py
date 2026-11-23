@@ -400,8 +400,8 @@ elif page == "Market Analytics":
     render_hero(
         "DATA SCIENCE WORKSPACE",
         "Washington housing market analytics",
-        "Explore housing prices, property characteristics, location patterns, "
-        "feature relationships and the model's performance on held-out records.",
+        "A compact view of housing market patterns, property characteristics "
+        "and predictive model performance.",
     )
 
     data = original.copy()
@@ -413,10 +413,8 @@ elif page == "Market Analytics":
     average_price = data["SalePrice"].mean()
     missing_cells = int(data.isna().sum().sum())
     duplicate_rows = int(data.duplicated().sum())
-
-    # A compact five-column KPI wall keeps the headline statistics together
-    # for portfolio screenshots while retaining every existing metric.
-    st.subheader("Analytics at a glance")
+    median_living_area = data["SqFtTotLiving"].median()
+    new_build_share = data["NewConstruction"].astype(bool).mean() * 100
 
     try:
         evaluation, metrics = calculate_holdout_evaluation(
@@ -433,36 +431,51 @@ elif page == "Market Analytics":
         metrics = None
         evaluation_error = str(exc)
 
-    stat_cards = [
-        ("Property records", f"{total_rows:,}"),
-        ("Median sale price", money(median_price)),
-        ("Held-out R²", f"{metrics['R2']:.3f}" if metrics else "N/A"),
-        ("MAE", money(metrics["MAE"]) if metrics else "N/A"),
-        ("RMSE", money(metrics["RMSE"]) if metrics else "N/A"),
-        ("Average sale price", money(average_price)),
-        ("Median absolute error", money(metrics["Median AE"]) if metrics else "N/A"),
-        ("Test records", f"{metrics['Test Rows']:,}" if metrics else "N/A"),
-        ("Cities represented", f"{number_of_cities:,}"),
-        ("Property types", f"{number_of_types:,}"),
-        ("Median living area", f"{data['SqFtTotLiving'].median():,.0f} sq ft"),
-        ("New construction share", f"{(data['NewConstruction'].astype(bool).mean() * 100):.1f}%"),
-        ("Missing values", f"{missing_cells:,}"),
-        ("Duplicate rows", f"{duplicate_rows:,}"),
-    ]
+    # Keep only the six highest-priority KPIs as cards. Additional descriptive
+    # figures remain visible in a compact text strip to make more room for charts.
+    st.subheader("Analytics at a glance")
+    top_metrics = st.columns(3, gap="small")
+    top_metrics[0].metric("Property records", f"{total_rows:,}")
+    top_metrics[1].metric("Median sale price", money(median_price))
+    top_metrics[2].metric(
+        "Held-out R²", f"{metrics['R2']:.3f}" if metrics else "N/A"
+    )
 
-    for row_start in range(0, len(stat_cards), 5):
-        metric_columns = st.columns(5, gap="small")
-        for column, (label, value) in zip(
-            metric_columns, stat_cards[row_start:row_start + 5]
-        ):
-            with column:
-                st.metric(label, value)
+    model_metrics = st.columns(3, gap="small")
+    model_metrics[0].metric(
+        "Mean absolute error", money(metrics["MAE"]) if metrics else "N/A"
+    )
+    model_metrics[1].metric(
+        "Root mean squared error", money(metrics["RMSE"]) if metrics else "N/A"
+    )
+    model_metrics[2].metric(
+        "Test records", f"{metrics['Test Rows']:,}" if metrics else "N/A"
+    )
+
+    st.markdown(
+        f"""
+        <div style="background:#FFFFFF;border:1px solid #E8E3D8;border-radius:10px;
+                    padding:9px 13px;margin:2px 0 12px 0;color:#536176;
+                    font-size:0.78rem;line-height:1.7;">
+          <b style="color:#14243B;">Dataset profile</b>
+          &nbsp; Average price: <b>{money(average_price)}</b>
+          &nbsp; · &nbsp; Cities: <b>{number_of_cities:,}</b>
+          &nbsp; · &nbsp; Property types: <b>{number_of_types:,}</b>
+          &nbsp; · &nbsp; Median living area: <b>{median_living_area:,.0f} sq ft</b>
+          &nbsp; · &nbsp; New builds: <b>{new_build_share:.1f}%</b>
+          &nbsp; · &nbsp; Missing values: <b>{missing_cells:,}</b>
+          &nbsp; · &nbsp; Duplicates: <b>{duplicate_rows:,}</b>
+          &nbsp; · &nbsp; Median absolute error:
+          <b>{money(metrics['Median AE']) if metrics else 'N/A'}</b>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     st.caption(
-        "Dataset figures are calculated from original_data.csv. Model scores use "
-        "the reconstructed 20% hold-out records. The original notebook fitted "
-        "preprocessing before splitting, so the encoder and scaler had access "
-        "to the full feature dataset; a future model refresh should fit "
+        "Model scores use reconstructed hold-out records. The original notebook "
+        "fitted preprocessing before splitting, so the encoder and scaler had "
+        "access to the full feature dataset; a future model refresh should fit "
         "preprocessing on training rows only."
     )
     if evaluation_error:
@@ -470,124 +483,148 @@ elif page == "Market Analytics":
 
     st.markdown("---")
 
-    st.subheader("1. Sale price patterns")
-    c1, c2 = st.columns(2)
+    # Three compact visualisations per row. The smaller chart height and
+    # reduced margins are intentional so several charts fit in one screenshot.
+    st.subheader("1. Housing market patterns")
+    row1 = st.columns(3, gap="small")
 
-    with c1:
-        price_hist = px.histogram(
-            data,
-            x="SalePrice",
-            nbins=55,
-            title="Distribution of recorded sale prices",
-            labels={"SalePrice": "Sale price (USD)", "count": "Number of properties"},
-            color_discrete_sequence=[GOLD],
+    price_hist = px.histogram(
+        data,
+        x="SalePrice",
+        nbins=45,
+        title="Sale price distribution",
+        labels={"SalePrice": "Sale price (USD)", "count": "Properties"},
+        color_discrete_sequence=[GOLD],
+    )
+    price_hist.update_xaxes(tickprefix="$", tickformat="~s")
+    with row1[0]:
+        st.plotly_chart(
+            chart_style(price_hist, height=245),
+            use_container_width=True,
+            config={"displayModeBar": False, "responsive": True},
         )
-        price_hist.update_xaxes(tickprefix="$", tickformat="~s")
-        st.plotly_chart(chart_style(price_hist), use_container_width=True)
 
-    with c2:
-        type_order = (
-            data.groupby("PropertyType")["SalePrice"]
-            .median()
-            .sort_values(ascending=False)
-            .index.tolist()
+    type_order = (
+        data.groupby("PropertyType")["SalePrice"]
+        .median()
+        .sort_values(ascending=False)
+        .index.tolist()
+    )
+    type_box = px.box(
+        data,
+        x="PropertyType",
+        y="SalePrice",
+        category_orders={"PropertyType": type_order},
+        color="PropertyType",
+        color_discrete_sequence=CHART_COLORS,
+        title="Prices by property type",
+        labels={"PropertyType": "Type", "SalePrice": "Sale price (USD)"},
+    )
+    type_box.update_yaxes(tickprefix="$", tickformat="~s")
+    with row1[1]:
+        st.plotly_chart(
+            chart_style(type_box, height=245),
+            use_container_width=True,
+            config={"displayModeBar": False, "responsive": True},
         )
-        type_box = px.box(
-            data,
-            x="PropertyType",
-            y="SalePrice",
-            category_orders={"PropertyType": type_order},
-            color="PropertyType",
-            color_discrete_sequence=CHART_COLORS,
-            title="Sale price distribution by property type",
-            labels={"PropertyType": "Property type", "SalePrice": "Sale price (USD)"},
-        )
-        type_box.update_yaxes(tickprefix="$", tickformat="~s")
-        st.plotly_chart(chart_style(type_box), use_container_width=True)
 
-    st.markdown("---")
+    city_volume = (
+        data.groupby("city", dropna=False)
+        .agg(Transactions=("SalePrice", "size"), MedianPrice=("SalePrice", "median"))
+        .sort_values("Transactions", ascending=False)
+        .head(8)
+        .reset_index()
+        .rename(columns={"city": "City"})
+    )
+    city_chart = px.bar(
+        city_volume.sort_values("Transactions"),
+        x="Transactions",
+        y="City",
+        orientation="h",
+        title="Top cities by sales volume",
+        color_discrete_sequence=[NAVY_LIGHT],
+        hover_data={"MedianPrice": ":,.0f"},
+        labels={"Transactions": "Sales"},
+    )
+    with row1[2]:
+        st.plotly_chart(
+            chart_style(city_chart, height=245),
+            use_container_width=True,
+            config={"displayModeBar": False, "responsive": True},
+        )
+
     st.subheader("2. Location and property characteristics")
-    c3, c4 = st.columns(2)
+    row2 = st.columns(3, gap="small")
 
-    with c3:
-        city_volume = (
-            data.groupby("city", dropna=False)
-            .agg(Transactions=("SalePrice", "size"), MedianPrice=("SalePrice", "median"))
-            .sort_values("Transactions", ascending=False)
-            .head(12)
-            .reset_index()
-            .rename(columns={"city": "City"})
+    city_medians = (
+        data.groupby("city")
+        .agg(Transactions=("SalePrice", "size"), MedianPrice=("SalePrice", "median"))
+        .query("Transactions >= 25")
+        .sort_values("MedianPrice", ascending=False)
+        .head(8)
+        .reset_index()
+        .rename(columns={"city": "City", "MedianPrice": "Median price"})
+    )
+    city_price_chart = px.bar(
+        city_medians.sort_values("Median price"),
+        x="Median price",
+        y="City",
+        orientation="h",
+        title="Median price by city",
+        color_discrete_sequence=[GOLD],
+        hover_data={"Transactions": True},
+        labels={"Median price": "Median price (USD)"},
+    )
+    city_price_chart.update_xaxes(tickprefix="$", tickformat="~s")
+    with row2[0]:
+        st.plotly_chart(
+            chart_style(city_price_chart, height=245),
+            use_container_width=True,
+            config={"displayModeBar": False, "responsive": True},
         )
-        city_chart = px.bar(
-            city_volume.sort_values("Transactions"),
-            x="Transactions",
-            y="City",
-            orientation="h",
-            title="Cities with the most recorded sales",
-            color_discrete_sequence=[NAVY_LIGHT],
-            hover_data={"MedianPrice": ":,.0f"},
-            labels={"Transactions": "Number of records"},
-        )
-        st.plotly_chart(chart_style(city_chart), use_container_width=True)
 
-    with c4:
-        city_medians = (
-            data.groupby("city")
-            .agg(Transactions=("SalePrice", "size"), MedianPrice=("SalePrice", "median"))
-            .query("Transactions >= 25")
-            .sort_values("MedianPrice", ascending=False)
-            .head(10)
-            .reset_index()
-            .rename(columns={"city": "City", "MedianPrice": "Median Sale Price"})
+    scatter_data = data.sample(n=min(1800, len(data)), random_state=42)
+    living_scatter = px.scatter(
+        scatter_data,
+        x="SqFtTotLiving",
+        y="SalePrice",
+        color="PropertyType",
+        color_discrete_sequence=CHART_COLORS,
+        opacity=0.62,
+        title="Living area vs sale price",
+        labels={
+            "SqFtTotLiving": "Living area (sq ft)",
+            "SalePrice": "Sale price (USD)",
+        },
+        hover_data=["city", "Bedrooms", "Bathrooms", "BldgGrade"],
+    )
+    living_scatter.update_yaxes(tickprefix="$", tickformat="~s")
+    with row2[1]:
+        st.plotly_chart(
+            chart_style(living_scatter, height=245),
+            use_container_width=True,
+            config={"displayModeBar": False, "responsive": True},
         )
-        city_price_chart = px.bar(
-            city_medians.sort_values("Median Sale Price"),
-            x="Median Sale Price",
-            y="City",
-            orientation="h",
-            title="Highest median prices among cities with 25+ records",
-            color_discrete_sequence=[GOLD],
-            hover_data={"Transactions": True},
-            labels={"Median Sale Price": "Median sale price (USD)"},
-        )
-        city_price_chart.update_xaxes(tickprefix="$", tickformat="~s")
-        st.plotly_chart(chart_style(city_price_chart), use_container_width=True)
 
-    c5, c6 = st.columns(2)
-    with c5:
-        scatter_data = data.sample(n=min(2500, len(data)), random_state=42)
-        living_scatter = px.scatter(
-            scatter_data,
-            x="SqFtTotLiving",
-            y="SalePrice",
-            color="PropertyType",
-            color_discrete_sequence=CHART_COLORS,
-            opacity=0.62,
-            title="Living area compared with sale price",
-            labels={
-                "SqFtTotLiving": "Interior living area (sq ft)",
-                "SalePrice": "Sale price (USD)",
-            },
-            hover_data=["city", "Bedrooms", "Bathrooms", "BldgGrade"],
+    bedroom_data = data[data["Bedrooms"].between(1, 8)]
+    bedroom_box = px.box(
+        bedroom_data,
+        x="Bedrooms",
+        y="SalePrice",
+        title="Prices by bedroom count",
+        color_discrete_sequence=[TEAL],
+        labels={"Bedrooms": "Bedrooms", "SalePrice": "Sale price (USD)"},
+    )
+    bedroom_box.update_yaxes(tickprefix="$", tickformat="~s")
+    with row2[2]:
+        st.plotly_chart(
+            chart_style(bedroom_box, height=245),
+            use_container_width=True,
+            config={"displayModeBar": False, "responsive": True},
         )
-        living_scatter.update_yaxes(tickprefix="$", tickformat="~s")
-        st.plotly_chart(chart_style(living_scatter), use_container_width=True)
 
-    with c6:
-        bedroom_data = data[data["Bedrooms"].between(1, 8)]
-        bedroom_box = px.box(
-            bedroom_data,
-            x="Bedrooms",
-            y="SalePrice",
-            title="Sale price by number of bedrooms",
-            color_discrete_sequence=[TEAL],
-            labels={"Bedrooms": "Bedrooms", "SalePrice": "Sale price (USD)"},
-        )
-        bedroom_box.update_yaxes(tickprefix="$", tickformat="~s")
-        st.plotly_chart(chart_style(bedroom_box), use_container_width=True)
-
-    st.markdown("---")
-    st.subheader("3. Relationships between numerical features")
+    st.subheader("3. Feature relationships and model drivers")
+    row3 = st.columns([2, 1], gap="small")
     correlation_columns = [
         "SalePrice",
         "SqFtTotLiving",
@@ -608,91 +645,118 @@ elif page == "Market Analytics":
         zmin=-1,
         zmax=1,
         color_continuous_scale=["#F5F3ED", GOLD, NAVY],
-        title="Correlation matrix for selected numerical variables",
+        title="Correlation between property features",
         aspect="auto",
     )
-    st.plotly_chart(chart_style(heatmap, height=470), use_container_width=True)
-
-    st.markdown("---")
-    st.subheader("4. Model evaluation on held-out data")
-    try:
-        evaluation, metrics = calculate_holdout_evaluation(
-            original,
-            X_train.index.tolist(),
-            X_train.columns.tolist(),
-            encoder,
-            scaler,
-            model,
+    heatmap.update_layout(coloraxis_colorbar=dict(thickness=10, len=0.72))
+    with row3[0]:
+        st.plotly_chart(
+            chart_style(heatmap, height=290),
+            use_container_width=True,
+            config={"displayModeBar": False, "responsive": True},
         )
 
-        e1, e2 = st.columns(2)
-        with e1:
-            axis_min = float(
-                min(evaluation["Actual Price"].min(), evaluation["Predicted Price"].min())
-            )
-            axis_max = float(
-                max(evaluation["Actual Price"].max(), evaluation["Predicted Price"].max())
-            )
-            actual_predicted = px.scatter(
-                evaluation.sample(n=min(2500, len(evaluation)), random_state=42),
-                x="Actual Price",
-                y="Predicted Price",
-                opacity=0.55,
-                color_discrete_sequence=[GOLD],
-                title="Actual prices vs model predictions",
-                labels={
-                    "Actual Price": "Actual sale price (USD)",
-                    "Predicted Price": "Predicted price (USD)",
-                },
-            )
-            actual_predicted.add_shape(
-                type="line",
-                x0=axis_min,
-                y0=axis_min,
-                x1=axis_max,
-                y1=axis_max,
-                line=dict(color=NAVY, dash="dash", width=2),
-            )
-            actual_predicted.update_xaxes(tickprefix="$", tickformat="~s")
-            actual_predicted.update_yaxes(tickprefix="$", tickformat="~s")
-            st.plotly_chart(chart_style(actual_predicted), use_container_width=True)
+    importance = pd.DataFrame(
+        {
+            "Feature": X_train.columns,
+            "Importance": model.feature_importances_,
+        }
+    ).sort_values("Importance", ascending=False).head(8)
+    importance_chart = px.bar(
+        importance.sort_values("Importance"),
+        x="Importance",
+        y="Feature",
+        orientation="h",
+        title="Top model features",
+        color_discrete_sequence=[GOLD],
+        labels={"Importance": "Importance"},
+    )
+    with row3[1]:
+        st.plotly_chart(
+            chart_style(importance_chart, height=290),
+            use_container_width=True,
+            config={"displayModeBar": False, "responsive": True},
+        )
 
-        with e2:
-            residual_hist = px.histogram(
-                evaluation,
-                x="Residual",
-                nbins=50,
-                title="Distribution of prediction errors",
-                labels={
-                    "Residual": "Actual minus predicted (USD)",
-                    "count": "Number of records",
-                },
-                color_discrete_sequence=[TEAL],
-            )
-            residual_hist.add_vline(x=0, line_dash="dash", line_color=NAVY)
-            residual_hist.update_xaxes(tickprefix="$", tickformat="~s")
-            st.plotly_chart(chart_style(residual_hist), use_container_width=True)
+    st.subheader("4. Model diagnostics")
+    if evaluation is not None:
+        row4 = st.columns(3, gap="small")
 
-        e3, e4 = st.columns(2)
-        with e3:
-            residual_scatter = px.scatter(
-                evaluation.sample(n=min(2500, len(evaluation)), random_state=42),
-                x="Predicted Price",
-                y="Residual",
-                opacity=0.55,
-                color_discrete_sequence=[NAVY_LIGHT],
-                title="Prediction error against predicted price",
-                labels={
-                    "Predicted Price": "Predicted price (USD)",
-                    "Residual": "Actual minus predicted (USD)",
-                },
+        axis_min = float(
+            min(evaluation["Actual Price"].min(), evaluation["Predicted Price"].min())
+        )
+        axis_max = float(
+            max(evaluation["Actual Price"].max(), evaluation["Predicted Price"].max())
+        )
+        actual_predicted = px.scatter(
+            evaluation.sample(n=min(1800, len(evaluation)), random_state=42),
+            x="Actual Price",
+            y="Predicted Price",
+            opacity=0.55,
+            color_discrete_sequence=[GOLD],
+            title="Actual vs predicted",
+            labels={
+                "Actual Price": "Actual (USD)",
+                "Predicted Price": "Predicted (USD)",
+            },
+        )
+        actual_predicted.add_shape(
+            type="line",
+            x0=axis_min,
+            y0=axis_min,
+            x1=axis_max,
+            y1=axis_max,
+            line=dict(color=NAVY, dash="dash", width=2),
+        )
+        actual_predicted.update_xaxes(tickprefix="$", tickformat="~s")
+        actual_predicted.update_yaxes(tickprefix="$", tickformat="~s")
+        with row4[0]:
+            st.plotly_chart(
+                chart_style(actual_predicted, height=245),
+                use_container_width=True,
+                config={"displayModeBar": False, "responsive": True},
             )
-            residual_scatter.add_hline(y=0, line_dash="dash", line_color=GOLD)
-            residual_scatter.update_xaxes(tickprefix="$", tickformat="~s")
-            residual_scatter.update_yaxes(tickprefix="$", tickformat="~s")
-            st.plotly_chart(chart_style(residual_scatter), use_container_width=True)
 
-        with e4:
+        residual_hist = px.histogram(
+            evaluation,
+            x="Residual",
+            nbins=42,
+            title="Prediction error distribution",
+            labels={"Residual": "Actual − predicted (USD)", "count": "Records"},
+            color_discrete_sequence=[TEAL],
+        )
+        residual_hist.add_vline(x=0, line_dash="dash", line_color=NAVY)
+        residual_hist.update_xaxes(tickprefix="$", tickformat="~s")
+        with row4[1]:
+            st.plotly_chart(
+                chart_style(residual_hist, height=245),
+                use_container_width=True,
+                config={"displayModeBar": False, "responsive": True},
+            )
+
+        residual_scatter = px.scatter(
+            evaluation.sample(n=min(1800, len(evaluation)), random_state=42),
+            x="Predicted Price",
+            y="Residual",
+            opacity=0.55,
+            color_discrete_sequence=[NAVY_LIGHT],
+            title="Error vs predicted price",
+            labels={
+                "Predicted Price": "Predicted (USD)",
+                "Residual": "Actual − predicted (USD)",
+            },
+        )
+        residual_scatter.add_hline(y=0, line_dash="dash", line_color=GOLD)
+        residual_scatter.update_xaxes(tickprefix="$", tickformat="~s")
+        residual_scatter.update_yaxes(tickprefix="$", tickformat="~s")
+        with row4[2]:
+            st.plotly_chart(
+                chart_style(residual_scatter, height=245),
+                use_container_width=True,
+                config={"displayModeBar": False, "responsive": True},
+            )
+
+        with st.expander("Detailed error analysis and evaluation sample"):
             evaluation_segments = evaluation.copy()
             evaluation_segments["Actual price quartile"] = pd.qcut(
                 evaluation_segments["Actual Price"],
@@ -725,27 +789,7 @@ elif page == "Market Analytics":
                 hide_index=True,
                 use_container_width=True,
             )
-
-        st.markdown("#### Most influential model features")
-        importance = pd.DataFrame(
-            {
-                "Feature": X_train.columns,
-                "Importance": model.feature_importances_,
-            }
-        ).sort_values("Importance", ascending=False).head(12)
-
-        importance_chart = px.bar(
-            importance.sort_values("Importance"),
-            x="Importance",
-            y="Feature",
-            orientation="h",
-            title="Top 12 features by model-reported importance",
-            color_discrete_sequence=[GOLD],
-            labels={"Importance": "Relative importance"},
-        )
-        st.plotly_chart(chart_style(importance_chart, height=430), use_container_width=True)
-
-        with st.expander("View evaluation sample"):
+            st.markdown("**Sample of held-out predictions**")
             st.dataframe(
                 evaluation[
                     ["Actual Price", "Predicted Price", "Residual", "Absolute Error"]
@@ -759,13 +803,11 @@ elif page == "Market Analytics":
                 ),
                 use_container_width=True,
             )
-
-    except Exception as exc:
+    else:
         st.warning(
-            "The dataset charts are available, but the held-out model evaluation "
-            "could not be reconstructed from the saved files."
+            "The market and feature visualisations are available, but model "
+            "diagnostics could not be reconstructed from the saved files."
         )
-        st.error(f"Evaluation detail: {exc}")
 
     st.caption(
         "Interpretation note: correlations describe associations in this dataset; "
@@ -774,7 +816,6 @@ elif page == "Market Analytics":
     )
 
 
-# ---------------------------------------------------------------------
 # PAGE 3 — PROPERTY RECOMMENDATIONS
 # ---------------------------------------------------------------------
 else:
