@@ -596,9 +596,15 @@ elif page == "Market Analytics":
         m5.metric("Test records", f"{metrics['Test Rows']:,}")
 
         st.caption(
-            "These metrics are calculated against the reconstructed 20% hold-out "
-            "set using saved training-row indices and the original fitted "
-            "encoder and scaler. They are not training-set scores."
+            "Evaluation uses the reconstructed 20% hold-out set and the saved "
+            "encoder and scaler. The displayed scores are not training-set scores."
+        )
+        st.caption(
+            "Methodology caveat: the original notebook fitted the encoder and "
+            "scaler before the train/test split. The evaluation uses held-out "
+            "target records, but preprocessing had access to the full feature "
+            "dataset. A future model refresh should fit preprocessing on the "
+            "training partition only, ideally inside a scikit-learn Pipeline."
         )
 
         e1, e2 = st.columns(2)
