@@ -23,6 +23,8 @@ The analytics page explores the original, human-readable housing data through:
 
 The held-out evaluation is reconstructed using the original row indices retained in `X_train.pkl`. The saved encoder and scaler are applied to the corresponding records before evaluation, so the displayed scores are calculated against records not used to fit the model.
 
+**Evaluation caveat:** the original notebook fitted the encoder and scaler before splitting the data. The test targets remain held out, but preprocessing had access to the full feature dataset. A future model refresh should fit preprocessing on the training partition only, preferably in a scikit-learn Pipeline.
+
 ### 3. Similar-property recommendations
 - Calculates feature similarity using cosine similarity.
 - Combines feature similarity (70%) and closeness to the predicted sale price (30%).
