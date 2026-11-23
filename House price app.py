@@ -131,18 +131,31 @@ def money(value):
     return f"USD {value:,.0f}"
 
 
-def chart_style(fig, height=350):
+def chart_style(fig, height=245):
     fig.update_layout(
         height=height,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor=WHITE,
-        font=dict(color=NAVY, family="Arial"),
-        margin=dict(l=12, r=12, t=52, b=12),
+        font=dict(color=NAVY, family="Arial", size=9),
+        margin=dict(l=7, r=7, t=34, b=7),
         legend_title_text="",
-        title_font=dict(size=15, color=NAVY),
+        legend=dict(font=dict(size=8), orientation="h", yanchor="bottom", y=1.02),
+        title_font=dict(size=12, color=NAVY),
     )
-    fig.update_xaxes(showgrid=True, gridcolor="#ECE8DF", zeroline=False)
-    fig.update_yaxes(showgrid=True, gridcolor="#ECE8DF", zeroline=False)
+    fig.update_xaxes(
+        showgrid=True,
+        gridcolor="#ECE8DF",
+        zeroline=False,
+        tickfont=dict(size=8),
+        title_font=dict(size=9),
+    )
+    fig.update_yaxes(
+        showgrid=True,
+        gridcolor="#ECE8DF",
+        zeroline=False,
+        tickfont=dict(size=8),
+        title_font=dict(size=9),
+    )
     return fig
 
 
