@@ -431,6 +431,36 @@ elif page == "Market Analytics":
         "The dataset summary is calculated from original_data.csv. "
         "Prices and property characteristics below are displayed in their original units."
     )
+
+    # Put model performance near the top so the dashboard communicates both
+    # dataset analysis and predictive performance in its first overview area.
+    st.subheader("Model performance snapshot")
+    try:
+        evaluation, metrics = calculate_holdout_evaluation(
+            original,
+            X_train.index.tolist(),
+            X_train.columns.tolist(),
+            encoder,
+            scaler,
+            model,
+        )
+        model_kpis = st.columns(5)
+        model_kpis[0].metric("Held-out R²", f"{metrics['R2']:.3f}")
+        model_kpis[1].metric("MAE", money(metrics["MAE"]))
+        model_kpis[2].metric("RMSE", money(metrics["RMSE"]))
+        model_kpis[3].metric("Median absolute error", money(metrics["Median AE"]))
+        model_kpis[4].metric("Test records", f"{metrics['Test Rows']:,}")
+        st.caption(
+            "Scores use the reconstructed 20% hold-out records. The original "
+            "notebook fitted preprocessing before splitting, so the encoder and "
+            "scaler had access to the full feature dataset; a future model refresh "
+            "should fit preprocessing on training rows only."
+        )
+    except Exception:
+        evaluation = None
+        metrics = None
+        st.caption("Model performance metrics could not be reconstructed from the saved files.")
+
     st.markdown("---")
 
     st.subheader("1. Sale price patterns")
@@ -586,25 +616,6 @@ elif page == "Market Analytics":
             encoder,
             scaler,
             model,
-        )
-
-        m1, m2, m3, m4, m5 = st.columns(5)
-        m1.metric("R² score", f"{metrics['R2']:.3f}")
-        m2.metric("MAE", money(metrics["MAE"]))
-        m3.metric("RMSE", money(metrics["RMSE"]))
-        m4.metric("Median absolute error", money(metrics["Median AE"]))
-        m5.metric("Test records", f"{metrics['Test Rows']:,}")
-
-        st.caption(
-            "Evaluation uses the reconstructed 20% hold-out set and the saved "
-            "encoder and scaler. The displayed scores are not training-set scores."
-        )
-        st.caption(
-            "Methodology caveat: the original notebook fitted the encoder and "
-            "scaler before the train/test split. The evaluation uses held-out "
-            "target records, but preprocessing had access to the full feature "
-            "dataset. A future model refresh should fit preprocessing on the "
-            "training partition only, ideally inside a scikit-learn Pipeline."
         )
 
         e1, e2 = st.columns(2)
